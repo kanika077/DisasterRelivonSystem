@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Volunteer Registration</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #84fab0, #8fd3f4);
+      margin: 0;
+      color: #333;
+      text-align: center;
+    }
+    h1 {
+      background-color: #00b894;
+      color: white;
+      margin: 0;
+      padding: 15px;
+    }
+    #map {
+      height: 300px;
+      width: 90%;
+      margin: 15px auto;
+      border-radius: 10px;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      width: 85%;
+      margin: 20px auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    input {
+      width: 80%;
+      padding: 10px;
+      margin: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #00b894;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    button:hover {
+      background-color: #55efc4;
+    }
+    a {
+      color: #007aff;
+      font-weight: 600;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>🟢 Volunteer Registration</h1>
+  <div id="map"></div>
+
+  <div class="container">
+    <h2>Enter Your Details</h2>
+    <input type="text" id="name" placeholder="Full Name" required /><br>
+    <input type="text" id="phone" placeholder="Phone Number" required /><br>
+    <button id="registerBtn">Register as Volunteer</button><br><br>
+    <button id="updateLocationBtn">📍 Update My Location</button><br><br>
+    <a href="dashboard.html">⬅ Go to Dashboard</a>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCsEaurl1G04kTJt7XmsAGw2CxBxnbDdrA",
+      authDomain: "hybridmeshalert.firebaseapp.com",
+      databaseURL: "https://hybridmeshalert-default-rtdb.firebaseio.com",
+      projectId: "hybridmeshalert",
+      storageBucket: "hybridmeshalert.appspot.com",
+      messagingSenderId: "596304767271",
+      appId: "1:596304767271:web:0b88d012ca4ba944e9a102"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const map = L.map("map").setView([20.5937, 78.9629], 5);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+    let lat, lng;
+    let marker;
+
+    // ✅ Load location from localStorage if available
+    if (localStorage.getItem("volunteerLat") && localStorage.getItem("volunteerLng")) {
+      lat = parseFloat(localStorage.getItem("volunteerLat"));
+      lng = parseFloat(localStorage.getItem("volunteerLng"));
+      map.setView([lat, lng], 13);
+      marker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Your Saved Location").openPopup();
+    } else {
+      // Ask location once
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+          localStorage.setItem("volunteerLat", lat);
+          localStorage.setItem("volunteerLng", lng);
+          map.setView([lat, lng], 13);
+          marker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Your Location").openPopup();
+        },
+        () => alert("Unable to get location.")
+      );
+    }
+
+    // ✅ Update location manually (optional)
+    document.getElementById("updateLocationBtn").addEventListener("click", () => {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+        localStorage.setItem("volunteerLat", lat);
+        localStorage.setItem("volunteerLng", lng);
+        map.setView([lat, lng], 13);
+        if (marker) map.removeLayer(marker);
+        marker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Updated Location").openPopup();
+        alert("✅ Location updated!");
+      });
+    });
+
+    // ✅ Register volunteer
+    document.getElementById("registerBtn").addEventListener("click", () => {
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+
+      if (!name || !phone || !lat || !lng) {
+        alert("⚠ Please enter all details and allow location access!");
+        return;
+      }
+
+      const volunteerData = {
+        name,
+        phone,
+        latitude: lat,
+        longitude: lng,
+        timestamp: new Date().toLocaleString(),
+      };
+
+      db.ref("volunteers").push(volunteerData);
+      alert("✅ Volunteer registered successfully!");
+    });
+  </script>
+</body>
+</html>

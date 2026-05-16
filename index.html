@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disaster Relivon System</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <!-- Fonts & Styles -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #edebed, #d3129d);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      padding: 25px 0;
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: white;
+      background: linear-gradient(135deg, #ff512f, #dd2476);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      padding: 20px;
+      width: 90%;
+      max-width: 500px;
+      margin: 20px 0;
+      transition: transform 0.2s;
+    }
+
+    .card:hover { transform: translateY(-5px); }
+
+    h3 { text-align: center; color: #ff416c; margin-bottom: 15px; }
+    .needs label { display: block; margin-bottom: 10px; font-weight: 500; cursor: pointer; }
+
+    input[type="checkbox"] { transform: scale(1.4); margin-right: 10px; accent-color: #ff416c; }
+
+    button {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      color: white;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+
+    #sos-status { text-align: center; margin-top: 15px; font-weight: bold; color: #11998e; }
+
+    #map {
+      height: 400px;
+      width: 90%;
+      max-width: 800px;
+      border-radius: 20px;
+      margin: 20px auto;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      border: 2px solid #edeaea;
+    }
+
+    a.dashboard-link {
+      display: inline-block;
+      padding: 12px 25px;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #f7971e, #ffd200);
+      color: white;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+
+    a.dashboard-link:hover { transform: scale(1.05); }
+  </style>
+</head>
+<body>
+
+<header>🚨Disaster Relivon System</header>
+
+<div class="card">
+  <h3>Select Your Needs</h3>
+  <div class="needs">
+    <label><input type="checkbox" id="needFood"> Food</label>
+    <label><input type="checkbox" id="needWater"> Water</label>
+    <label><input type="checkbox" id="needMedical"> Medical Aid</label>
+    <label><input type="checkbox" id="needShelter"> Shelter</label>
+    <label><input type="checkbox" id="needEvac"> Evacuation</label>
+  </div>
+
+  <button id="sosBtn">🚨 SEND SOS</button>
+  <div id="sos-status"></div>
+</div>
+
+<a href="dashboard.html" class="dashboard-link">📊 Open Dashboard</a>
+
+<div id="map"></div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCsEaurl1G04kTJt7XmsAGw2CxBxnbDdrA",
+    authDomain: "hybridmeshalert.firebaseapp.com",
+    databaseURL: "https://hybridmeshalert-default-rtdb.firebaseio.com",
+    projectId: "hybridmeshalert",
+    storageBucket: "hybridmeshalert.appspot.com",
+    messagingSenderId: "596304767271",
+    appId: "1:596304767271:web:0b88d012ca4ba944e9a102"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // Initialize map
+  const map = L.map('map').setView([20.5937,78.9629],5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const sosIcon = L.icon({ iconUrl:'https://cdn-icons-png.flaticon.com/512/483/483361.png', iconSize:[35,35] });
+  const volIcon = L.icon({ iconUrl:'https://cdn-icons-png.flaticon.com/512/3176/3176364.png', iconSize:[30,30] });
+
+  let sosMarkers = [];
+  let volMarkers = [];
+
+  function updateMap(){
+    sosMarkers.forEach(m=>map.removeLayer(m));
+    volMarkers.forEach(m=>map.removeLayer(m));
+    sosMarkers = [];
+    volMarkers = [];
+
+    db.ref('sos_alerts').once('value', snapshot=>{
+      snapshot.forEach(snap=>{
+        const data = snap.val();
+        const marker = L.marker([data.latitude,data.longitude],{icon:sosIcon})
+          .addTo(map)
+          .bindPopup(`<b>🚨 SOS Alert</b><br>Needs: ${data.needs}<br>${new Date(data.timestamp).toLocaleString()}`);
+        sosMarkers.push(marker);
+      });
+    });
+
+    db.ref('volunteers').once('value', snapshot=>{
+      snapshot.forEach(snap=>{
+        const v = snap.val();
+        const marker = L.marker([v.latitude,v.longitude],{icon:volIcon})
+          .addTo(map)
+          .bindPopup(`<b>${v.name}</b><br>📞 ${v.phone}<br>Joined: ${v.timestamp}`);
+        volMarkers.push(marker);
+      });
+    });
+  }
+
+  setInterval(updateMap,5000);
+  updateMap();
+
+  const sosBtn = document.getElementById('sosBtn');
+  const statusText = document.getElementById('sos-status');
+
+  sosBtn.addEventListener('click',()=>{
+    if(!navigator.geolocation){ alert("Enable location!"); return; }
+
+    sosBtn.disabled = true;
+    sosBtn.textContent = "Fetching location...";
+    statusText.textContent = "";
+
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      const needs=[];
+      if(document.getElementById("needFood").checked) needs.push("Food");
+      if(document.getElementById("needWater").checked) needs.push("Water");
+      if(document.getElementById("needMedical").checked) needs.push("Medical Aid");
+      if(document.getElementById("needShelter").checked) needs.push("Shelter");
+      if(document.getElementById("needEvac").checked) needs.push("Evacuation");
+
+      const sosData = {
+        latitude: lat,
+        longitude: lng,
+        needs: needs.length? needs.join(", "): "General Help Needed",
+        timestamp: new Date().toISOString()
+      };
+
+      db.ref('sos_alerts').push(sosData).then(()=>{
+        sosBtn.textContent="✅ SOS Sent!";
+        statusText.textContent="Alert sent!";
+        setTimeout(()=>{
+          sosBtn.textContent="🚨 SEND SOS";
+          sosBtn.disabled=false;
+        },2000);
+      }).catch(err=>{
+        alert("Failed to send SOS!"); console.error(err);
+        sosBtn.textContent="🚨 SEND SOS"; sosBtn.disabled=false;
+      });
+
+    },()=>{ alert("Unable to get location!"); sosBtn.textContent="🚨 SEND SOS"; sosBtn.disabled=false; },{enableHighAccuracy:true});
+  });
+</script>
+</body>
+</html>

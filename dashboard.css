@@ -1,0 +1,41 @@
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  background: linear-gradient(to bottom right, #74ebd5, #acb6e5);
+}
+
+header {
+  text-align: center;
+  background: #1e3c72;
+  color: white;
+  padding: 20px;
+}
+
+main {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.checklist, .contacts {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+#dashboard-map {
+  grid-column: span 2;
+  height: 60vh;
+  border-radius: 15px;
+}
+
+.back {
+  display: block;
+  text-align: center;
+  margin: 20px;
+  color: #1e3c72;
+  text-decoration: none;
+  font-weight: 600;
+}
